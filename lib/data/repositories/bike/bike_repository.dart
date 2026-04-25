@@ -1,83 +1,86 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:velotolouse/data/dto/bike_dto.dart';
+import 'package:velotolouse/data/firebase/firebase_config.dart';
 import 'package:velotolouse/data/repositories/bike/bike_abstract_repo.dart';
 import 'package:velotolouse/model/bike/bike.dart';
 
-// Firebase implementation data getting logic
-class FirebaseBikeRepository implements BikeRepository {
-  final FirebaseFirestore _firestore;
-
-  FirebaseBikeRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
-
+// Firebase Realtime Database implementation using HTTP REST (consistent with other repos)
+class BikeRepositoryFirebase implements BikeAbstractRepo {
   @override
   Future<List<Bike>> getAllBikes() async {
-    try {
-      // Fetch all bikes from Firestore collection
-      final snapshot = await _firestore.collection('bikes').get();
+    final uri = FirebaseConfig.buildUri('bikes.json');
 
-      // Convert each document using DTO and collect into list
-      return snapshot.docs.map((doc) {
-        return BikeDto.fromFireStore(doc.id, doc.data());
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load bikes: ${response.statusCode}');
+      }
+
+      if (response.body == 'null') return [];
+
+      final Map<String, dynamic> bikesJson =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      return bikesJson.entries.map((entry) {
+        final id = entry.key; // id comes first (key)
+        final data = Map<String, dynamic>.from(entry.value as Map);
+        return BikeDto.fromFireStore(id, data); // fixed: was (e.value, e.key)
       }).toList();
     } catch (e) {
-      print('Error fetching bikes: $e');
-      return [];
+      throw Exception('Error fetching bikes: $e');
     }
   }
 
   @override
-  Future<Bike?> getBikeById(String bikeId) async {
+  Future<Bike?> getBike(String bikeId) async { // fixed: was missing 'async' and body
+    final uri = FirebaseConfig.buildUri('bikes/$bikeId.json');
+
     try {
-      // Fetch single bike document by ID
-      final doc = await _firestore.collection('bikes').doc(bikeId).get();
+      final response = await http.get(uri);
 
-      if (!doc.exists) return null;
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load bike: ${response.statusCode}');
+      }
 
-      // Convert document data to Bike using DTO
-      return BikeDto.fromFireStore(doc.id, doc.data()!);
+      if (response.body == 'null') return null;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return BikeDto.fromFireStore(bikeId, data);
     } catch (e) {
-      print('Error fetching bike: $e');
-      return null;
+      throw Exception('Error fetching bike: $e');
     }
   }
 
   @override
-  Future<void> createBike(Bike bike) async {
-    try {
-      // Convert Bike to map using DTO
-      final bikeData = BikeDto.toFireStore(bike);
+  Future<Bike?> updateBikeAvailability(String bikeId, bool status) async {
+    final uri = FirebaseConfig.buildUri('bikes/$bikeId.json');
 
-      // Store in Firestore using bike ID as document ID
-      await _firestore.collection('bikes').doc(bike.bikeId).set(bikeData);
+    try {
+      // Convert bool to status string that matches the Bike model
+      final response = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'status': status ? 'available' : 'unavailable'}),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception(
+            'Failed to update bike availability: ${response.statusCode}');
+      }
+
+      // Fetch and return the updated bike
+      return await getBike(bikeId);
     } catch (e) {
-      print('Error creating bike: $e');
-      rethrow;
+      throw Exception('Error updating bike availability: $e');
     }
   }
 
   @override
-  Future<void> updateBike(Bike bike) async {
-    try {
-      // Convert Bike to map using DTO
-      final bikeData = BikeDto.toFireStore(bike);
-
-      // Update existing document
-      await _firestore.collection('bikes').doc(bike.bikeId).update(bikeData);
-    } catch (e) {
-      print('Error updating bike: $e');
-      rethrow;
-    }
-  }
-
-  @override
-  Future<void> deleteBike(String bikeId) async {
-    try {
-      // Delete document by ID
-      await _firestore.collection('bikes').doc(bikeId).delete();
-    } catch (e) {
-      print('Error deleting bike: $e');
-      rethrow;
-    }
+  Stream<List<Bike>> watchBikes() {
+    // watchBikes is not used by BikeProvider — HTTP REST does not support streaming
+    throw UnimplementedError('watchBikes is not supported with HTTP REST');
   }
 }

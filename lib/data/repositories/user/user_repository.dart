@@ -1,83 +1,124 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:velotolouse/data/dto/user_dto.dart';
+import 'package:velotolouse/data/firebase/firebase_config.dart';
 import 'package:velotolouse/data/repositories/user/user_abstract_repo.dart';
 import 'package:velotolouse/model/user/user.dart';
 
-// Firebase implementation data getting logic
+// Firebase Realtime Database implementation data getting logic
 class FirebaseUserRepository implements UserRepository {
-  final FirebaseFirestore _firestore;
-
-  FirebaseUserRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
-
   @override
   Future<List<User>> getAllUsers() async {
-    try {
-      // Fetch all users from Firestore collection
-      final snapshot = await _firestore.collection('users').get();
+    final uri = FirebaseConfig.buildUri('users.json');
 
-      // Convert each document using DTO and collect into list
-      return snapshot.docs.map((doc) {
-        return UserDto.fromFirestore(doc.id, doc.data());
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load users: ${response.statusCode}');
+      }
+
+      if (response.body == 'null') return [];
+
+      final Map<String, dynamic> usersJson =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      return usersJson.entries.map((entry) {
+        final id = entry.key;
+        final data = Map<String, dynamic>.from(entry.value as Map);
+        return UserDto.fromFirestore(id, data);
       }).toList();
     } catch (e) {
-      print('Error fetching users: $e');
-      return [];
+      throw Exception('Error fetching users: $e');
     }
   }
 
   @override
   Future<User?> getUserById(String userId) async {
+    final uri = FirebaseConfig.buildUri('users/$userId.json');
+
     try {
-      // Fetch single user document by ID
-      final doc = await _firestore.collection('users').doc(userId).get();
+      final response = await http.get(uri);
 
-      if (!doc.exists) return null;
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load user: ${response.statusCode}');
+      }
 
-      // Convert document data to User using DTO
-      return UserDto.fromFirestore(doc.id, doc.data()!);
+      if (response.body == 'null') return null;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      return UserDto.fromFirestore(userId, data);
     } catch (e) {
-      print('Error fetching user: $e');
-      return null;
+      throw Exception('Error fetching user: $e');
     }
   }
 
   @override
   Future<void> createUser(User user) async {
+    final uri = FirebaseConfig.buildUri('users/${user.id}.json');
+
     try {
-      // Convert User to map using DTO
       final userData = UserDto.toFirestore(user);
 
-      // Store in Firestore using user ID as document ID
-      await _firestore.collection('users').doc(user.id).set(userData);
+      // Keep optional fields when writing to Firebase
+      userData['activeBookingId'] = user.activeBookingId;
+      userData['activeTripId'] = user.activeTripId;
+
+      final response = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(userData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to create user: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error creating user: $e');
-      rethrow;
+      throw Exception('Error creating user: $e');
     }
   }
 
   @override
   Future<void> updateUser(User user) async {
-    try {
-      // Convert User to map using DTO
-      final userData = UserDto.toFirestore(user);
+    final uri = FirebaseConfig.buildUri('users/${user.id}.json');
 
-      // Update existing document
-      await _firestore.collection('users').doc(user.id).update(userData);
+    try {
+      final userData = UserDto.toFirestore(user);
+      userData['activeBookingId'] = user.activeBookingId;
+      userData['activeTripId'] = user.activeTripId;
+
+      final response = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(userData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update user: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error updating user: $e');
-      rethrow;
+      throw Exception('Error updating user: $e');
     }
   }
 
   @override
   Future<void> deleteUser(String userId) async {
+    final uri = FirebaseConfig.buildUri('users/$userId.json');
+
     try {
-      // Delete document by ID
-      await _firestore.collection('users').doc(userId).delete();
+      final response = await http.delete(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete user: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error deleting user: $e');
-      rethrow;
+      throw Exception('Error deleting user: $e');
     }
+  }
+
+  @override
+  Future<User?> getUser(String userId) {
+    return getUserById(userId);
   }
 }

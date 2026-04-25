@@ -1,102 +1,137 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
 import 'package:velotolouse/data/dto/booking_dto.dart';
+import 'package:velotolouse/data/firebase/firebase_config.dart';
 import 'package:velotolouse/data/repositories/booking/booking_abstract_repo.dart';
 import 'package:velotolouse/model/booking/booking.dart';
 
-// Firebase implementation data fetching logic lives here only
+// Firebase Realtime Database implementation data fetching logic
 class FirebaseBookingRepository implements BookingRepository {
-  final FirebaseFirestore _firestore;
-
-  FirebaseBookingRepository({FirebaseFirestore? firestore})
-      : _firestore = firestore ?? FirebaseFirestore.instance;
-
   @override
   Future<List<Booking>> getAllBookings() async {
-    try {
-      // Fetch all bookings from Firestore collection
-      final snapshot = await _firestore.collection('bookings').get();
+    final uri = FirebaseConfig.buildUri('bookings.json');
 
-      // Convert each document using DTO and collect into list
-      return snapshot.docs.map((doc) {
-        return BookingDto.fromFirestore(doc.id, doc.data());
+    try {
+      final response = await http.get(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load bookings: ${response.statusCode}');
+      }
+
+      if (response.body == 'null') return [];
+
+      final Map<String, dynamic> bookingsJson =
+          jsonDecode(response.body) as Map<String, dynamic>;
+
+      return bookingsJson.entries.map((entry) {
+        final id = entry.key;
+        final data = Map<String, dynamic>.from(entry.value as Map);
+
+        // Convert date strings from Firebase into DateTime for the DTO
+        data['startTime'] = DateTime.parse(data['startTime'] as String);
+        data['endTime'] = DateTime.parse(data['endTime'] as String);
+
+        return BookingDto.fromFirestore(id, data);
       }).toList();
     } catch (e) {
-      print('Error fetching bookings: $e');
-      return [];
+      throw Exception('Error fetching bookings: $e');
     }
   }
 
   @override
   Future<Booking?> getBookingById(String bookingId) async {
+    final uri = FirebaseConfig.buildUri('bookings/$bookingId.json');
+
     try {
-      // Fetch single booking document by ID
-      final doc = await _firestore.collection('bookings').doc(bookingId).get();
+      final response = await http.get(uri);
 
-      if (!doc.exists) return null;
+      if (response.statusCode != 200) {
+        throw Exception('Failed to load booking: ${response.statusCode}');
+      }
 
-      // Convert document data to Booking using DTO
-      return BookingDto.fromFirestore(doc.id, doc.data()!);
+      if (response.body == 'null') return null;
+
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      data['startTime'] = DateTime.parse(data['startTime'] as String);
+      data['endTime'] = DateTime.parse(data['endTime'] as String);
+
+      return BookingDto.fromFirestore(bookingId, data);
     } catch (e) {
-      print('Error fetching booking: $e');
-      return null;
+      throw Exception('Error fetching booking: $e');
     }
   }
 
   @override
   Future<List<Booking>> getBookingsByUserId(String userId) async {
     try {
-      // Query bookings by userId field
-      final snapshot = await _firestore
-          .collection('bookings')
-          .where('userId', isEqualTo: userId)
-          .get();
-
-      // Convert each document using DTO and collect into list
-      return snapshot.docs.map((doc) {
-        return BookingDto.fromFirestore(doc.id, doc.data());
-      }).toList();
+      final allBookings = await getAllBookings();
+      return allBookings.where((booking) => booking.userId == userId).toList();
     } catch (e) {
-      print('Error fetching bookings for user: $e');
-      return [];
+      throw Exception('Error fetching bookings for user: $e');
     }
   }
 
   @override
   Future<void> createBooking(Booking booking) async {
+    final uri = FirebaseConfig.buildUri('bookings/${booking.id}.json');
+
     try {
-      // Convert Booking to map using DTO
       final bookingData = BookingDto.toFirestore(booking);
 
-      // Store in Firestore using booking ID as document ID
-      await _firestore.collection('bookings').doc(booking.id).set(bookingData);
+      // Convert DateTime into string before jsonEncode
+      bookingData['startTime'] = booking.startTime.toIso8601String();
+      bookingData['endTime'] = booking.endTime.toIso8601String();
+
+      final response = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(bookingData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to create booking: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error creating booking: $e');
-      rethrow;
+      throw Exception('Error creating booking: $e');
     }
   }
 
   @override
   Future<void> updateBooking(Booking booking) async {
-    try {
-      // Convert Booking to map using DTO
-      final bookingData = BookingDto.toFirestore(booking);
+    final uri = FirebaseConfig.buildUri('bookings/${booking.id}.json');
 
-      // Update existing document
-      await _firestore.collection('bookings').doc(booking.id).update(bookingData);
+    try {
+      final bookingData = BookingDto.toFirestore(booking);
+      bookingData['startTime'] = booking.startTime.toIso8601String();
+      bookingData['endTime'] = booking.endTime.toIso8601String();
+
+      final response = await http.patch(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(bookingData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to update booking: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error updating booking: $e');
-      rethrow;
+      throw Exception('Error updating booking: $e');
     }
   }
 
   @override
   Future<void> deleteBooking(String bookingId) async {
+    final uri = FirebaseConfig.buildUri('bookings/$bookingId.json');
+
     try {
-      // Delete document by ID
-      await _firestore.collection('bookings').doc(bookingId).delete();
+      final response = await http.delete(uri);
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to delete booking: ${response.statusCode}');
+      }
     } catch (e) {
-      print('Error deleting booking: $e');
-      rethrow;
+      throw Exception('Error deleting booking: $e');
     }
   }
 }

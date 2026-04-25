@@ -1,1 +1,25 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"velotolouse-60964","appId":"1:177925156640:android:85c0252eb4a1ed961af145","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"velotolouse-60964","configurations":{"android":"1:177925156640:android:85c0252eb4a1ed961af145","ios":"1:177925156640:ios:443ed5418d367f981af145","macos":"1:177925156640:ios:443ed5418d367f981af145","web":"1:177925156640:web:cd871949d64c9c841af145","windows":"1:177925156640:web:c60b463436a940301af145"}}}}}}
+{
+    "flutter": {
+        "platforms": {
+            "android": {
+                "default": {
+                    "projectId": "velotolouse-60964",
+                    "appId": "1:177925156640:android:85c0252eb4a1ed961af145",
+                    "fileOutput": "android/app/google-services.json"
+                }
+            },
+            "dart": {
+                "lib/firebase_options.dart": {
+                    "projectId": "velotolouse-60964",
+                    "configurations": {
+                        "android": "1:177925156640:android:85c0252eb4a1ed961af145",
+                        "ios": "1:177925156640:ios:443ed5418d367f981af145",
+                        "macos": "1:177925156640:ios:443ed5418d367f981af145",
+                        "web": "1:177925156640:web:cd871949d64c9c841af145",
+                        "windows": "1:177925156640:web:c60b463436a940301af145"
+                    }
+                }
+            }
+        }
+    }
+}
