@@ -27,7 +27,7 @@ class FirebaseUserRepository implements UserRepository {
       return usersJson.entries.map((entry) {
         final id = entry.key;
         final data = Map<String, dynamic>.from(entry.value as Map);
-        return UserDto.fromFirestore(id, data);
+        return UserDto.fromRtdb(id, data);
       }).toList();
     } catch (e) {
       throw Exception('Error fetching users: $e');
@@ -48,7 +48,7 @@ class FirebaseUserRepository implements UserRepository {
       if (response.body == 'null') return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return UserDto.fromFirestore(userId, data);
+      return UserDto.fromRtdb(userId, data);
     } catch (e) {
       throw Exception('Error fetching user: $e');
     }
@@ -59,7 +59,7 @@ class FirebaseUserRepository implements UserRepository {
     final uri = FirebaseConfig.buildUri('users/${user.id}.json');
 
     try {
-      final userData = UserDto.toFirestore(user);
+      final userData = UserDto.toRtdb(user);
 
       // Keep optional fields when writing to Firebase
       userData['activeBookingId'] = user.activeBookingId;
@@ -84,7 +84,7 @@ class FirebaseUserRepository implements UserRepository {
     final uri = FirebaseConfig.buildUri('users/${user.id}.json');
 
     try {
-      final userData = UserDto.toFirestore(user);
+      final userData = UserDto.toRtdb(user);
       userData['activeBookingId'] = user.activeBookingId;
       userData['activeTripId'] = user.activeTripId;
 

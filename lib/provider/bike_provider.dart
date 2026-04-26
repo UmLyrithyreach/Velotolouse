@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:velotolouse/data/repositories/bike/bike_abstract_repo.dart';
 import 'package:velotolouse/model/bike/bike.dart';
 
+import 'package:velotolouse/data/seed/bike_seed.dart';
+
 class BikeProvider extends ChangeNotifier {
   // Repository injected via constructor (manual injection, no get_it)
   final BikeAbstractRepo _bikeRepository;
@@ -27,6 +29,13 @@ class BikeProvider extends ChangeNotifier {
     try {
       // Call repository to get bikes
       _bikes = await _bikeRepository.getAllBikes();
+      
+      // seed bike
+      if (_bikes.isEmpty) {
+        await _bikeRepository.seedBikes(BikeSeed.bikes);
+        _bikes = await _bikeRepository.getAllBikes();
+      }
+      
       _error = null;
     } catch (e) {
       // Store error message if something fails

@@ -1,6 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:velotolouse/core/const/priceConstant.dart';
 import 'package:velotolouse/data/repositories/trip/trip_abstract_repo.dart';
 import 'package:velotolouse/model/trip/trip.dart';
+
+class EndTripResult {
+  final double distanceKm;
+  final double price;
+
+  EndTripResult({
+    required this.distanceKm,
+    required this.price,
+  });
+}
 
 class TripProvider extends ChangeNotifier {
   // Repository injected via constructor (manual injection, no get_it)
@@ -82,6 +94,91 @@ class TripProvider extends ChangeNotifier {
       _error = 'Failed to create trip: $e';
       print(_error);
       rethrow;
+    }
+  }
+
+  // Start a trip for a user and return the created trip.
+  Future<Trip?> startTrip({
+    required String userId,
+    required String bikeId,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final trip = Trip(
+        id: now.microsecondsSinceEpoch.toString(),
+        userId: userId,
+        bikeId: bikeId,
+        startTime: now,
+        endTime: now,
+        price: 0,
+      );
+
+      await createTrip(trip);
+      return trip;
+    } catch (e) {
+      _error = 'Failed to start trip: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  // End an active trip, calculate distance and price, then save it.
+  Future<EndTripResult?> endTrip({
+    required String tripId,
+    required String userId,
+    required String bikeId,
+    required DateTime startTime,
+    required double startLatitude,
+    required double startLongitude,
+  }) async {
+    try {
+      double distanceKm = 0;
+
+      try {
+        // Try to get current GPS position (triggers browser prompt on web).
+        final currentPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        );
+
+        final distanceMeters = Geolocator.distanceBetween(
+          startLatitude,
+          startLongitude,
+          currentPosition.latitude,
+          currentPosition.longitude,
+        );
+        distanceKm = distanceMeters / 1000;
+      } catch (_) {
+        // Location unavailable (permission denied, service off, web blocked).
+        // Fall back to time-based distance estimate.
+        final durationMinutes =
+            DateTime.now().difference(startTime).inMinutes.toDouble();
+        // Assume average cycling speed of 15 km/h
+        distanceKm = (durationMinutes / 60) * 15;
+      }
+
+      final totalPrice = distanceKm * PriceConstant.pricePerKm;
+
+      final endedTrip = Trip(
+        id: tripId,
+        userId: userId,
+        bikeId: bikeId,
+        startTime: startTime,
+        endTime: DateTime.now(),
+        price: totalPrice,
+      );
+
+      await updateTrip(endedTrip);
+
+      return EndTripResult(
+        distanceKm: distanceKm,
+        price: totalPrice,
+      );
+    } catch (e) {
+      _error = 'Failed to end trip: $e';
+      notifyListeners();
+      return null;
     }
   }
 

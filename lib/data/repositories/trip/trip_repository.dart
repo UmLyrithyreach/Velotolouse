@@ -32,7 +32,7 @@ class FirebaseTripRepository implements TripRepository {
         data['startTime'] = DateTime.parse(data['startTime'] as String);
         data['endTime'] = DateTime.parse(data['endTime'] as String);
 
-        return TripDto.fromFirestore(id, data);
+        return TripDto.fromRtdb(id, data);
       }).toList();
     } catch (e) {
       throw Exception('Error fetching trips: $e');
@@ -56,7 +56,7 @@ class FirebaseTripRepository implements TripRepository {
       data['startTime'] = DateTime.parse(data['startTime'] as String);
       data['endTime'] = DateTime.parse(data['endTime'] as String);
 
-      return TripDto.fromFirestore(tripId, data);
+      return TripDto.fromRtdb(tripId, data);
     } catch (e) {
       throw Exception('Error fetching trip: $e');
     }
@@ -77,7 +77,7 @@ class FirebaseTripRepository implements TripRepository {
     final uri = FirebaseConfig.buildUri('trips/${trip.id}.json');
 
     try {
-      final tripData = TripDto.toFirestore(trip);
+      final tripData = TripDto.toRtdb(trip);
 
       // Convert DateTime into string before jsonEncode
       tripData['startTime'] = trip.startTime.toIso8601String();
@@ -102,7 +102,7 @@ class FirebaseTripRepository implements TripRepository {
     final uri = FirebaseConfig.buildUri('trips/${trip.id}.json');
 
     try {
-      final tripData = TripDto.toFirestore(trip);
+      final tripData = TripDto.toRtdb(trip);
       tripData['startTime'] = trip.startTime.toIso8601String();
       tripData['endTime'] = trip.endTime.toIso8601String();
 

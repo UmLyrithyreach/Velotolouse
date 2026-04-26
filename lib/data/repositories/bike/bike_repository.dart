@@ -27,7 +27,7 @@ class BikeRepositoryFirebase implements BikeAbstractRepo {
       return bikesJson.entries.map((entry) {
         final id = entry.key; // id comes first (key)
         final data = Map<String, dynamic>.from(entry.value as Map);
-        return BikeDto.fromFireStore(id, data); // fixed: was (e.value, e.key)
+        return BikeDto.fromRtdb(id, data); // fixed: was (e.value, e.key)
       }).toList();
     } catch (e) {
       throw Exception('Error fetching bikes: $e');
@@ -48,7 +48,7 @@ class BikeRepositoryFirebase implements BikeAbstractRepo {
       if (response.body == 'null') return null;
 
       final data = jsonDecode(response.body) as Map<String, dynamic>;
-      return BikeDto.fromFireStore(bikeId, data);
+      return BikeDto.fromRtdb(bikeId, data);
     } catch (e) {
       throw Exception('Error fetching bike: $e');
     }
@@ -75,6 +75,24 @@ class BikeRepositoryFirebase implements BikeAbstractRepo {
       return await getBike(bikeId);
     } catch (e) {
       throw Exception('Error updating bike availability: $e');
+    }
+  }
+
+  @override
+  Future<void> seedBikes(List<Bike> bikes) async {
+    for (final bike in bikes) {
+      final uri = FirebaseConfig.buildUri('bikes/${bike.bikeId}.json');
+      final bikeData = BikeDto.toRtdb(bike);
+      
+      final response = await http.put(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(bikeData),
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Failed to seed bike ${bike.bikeId}');
+      }
     }
   }
 

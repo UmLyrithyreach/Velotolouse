@@ -1,7 +1,7 @@
 import 'package:velotolouse/model/booking/booking.dart';
 
 class BookingDto{
-  static Booking fromFirestore(String id ,Map<String, dynamic> map){
+  static Booking fromRtdb(String id ,Map<String, dynamic> map){
     return Booking(
       id: id,
       userId: map['userId'],
@@ -12,7 +12,7 @@ class BookingDto{
     );
   }
 
-  static Map<String, dynamic> toFirestore(Booking booking){
+  static Map<String, dynamic> toRtdb(Booking booking){
     return {
       'userId': booking.userId,
       'bikeId': booking.bikeId,

@@ -1,7 +1,7 @@
 import 'package:velotolouse/model/user/user.dart';
 
 class UserDto {
-  static User fromFirestore(String id, Map<String, dynamic> map) {
+  static User fromRtdb(String id, Map<String, dynamic> map) {
     return User(
       id: id,
       name: map['name'],
@@ -10,7 +10,7 @@ class UserDto {
     );
   }
 
-  static Map<String, dynamic> toFirestore(User user) {
+  static Map<String, dynamic> toRtdb(User user) {
     return {
       'name': user.name,
       'email': user.email,

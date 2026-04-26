@@ -32,7 +32,7 @@ class FirebaseBookingRepository implements BookingRepository {
         data['startTime'] = DateTime.parse(data['startTime'] as String);
         data['endTime'] = DateTime.parse(data['endTime'] as String);
 
-        return BookingDto.fromFirestore(id, data);
+        return BookingDto.fromRtdb(id, data);
       }).toList();
     } catch (e) {
       throw Exception('Error fetching bookings: $e');
@@ -56,7 +56,7 @@ class FirebaseBookingRepository implements BookingRepository {
       data['startTime'] = DateTime.parse(data['startTime'] as String);
       data['endTime'] = DateTime.parse(data['endTime'] as String);
 
-      return BookingDto.fromFirestore(bookingId, data);
+      return BookingDto.fromRtdb(bookingId, data);
     } catch (e) {
       throw Exception('Error fetching booking: $e');
     }
@@ -77,7 +77,7 @@ class FirebaseBookingRepository implements BookingRepository {
     final uri = FirebaseConfig.buildUri('bookings/${booking.id}.json');
 
     try {
-      final bookingData = BookingDto.toFirestore(booking);
+      final bookingData = BookingDto.toRtdb(booking);
 
       // Convert DateTime into string before jsonEncode
       bookingData['startTime'] = booking.startTime.toIso8601String();
@@ -102,7 +102,7 @@ class FirebaseBookingRepository implements BookingRepository {
     final uri = FirebaseConfig.buildUri('bookings/${booking.id}.json');
 
     try {
-      final bookingData = BookingDto.toFirestore(booking);
+      final bookingData = BookingDto.toRtdb(booking);
       bookingData['startTime'] = booking.startTime.toIso8601String();
       bookingData['endTime'] = booking.endTime.toIso8601String();
 

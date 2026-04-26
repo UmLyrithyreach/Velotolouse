@@ -85,6 +85,31 @@ class BookingProvider extends ChangeNotifier {
     }
   }
 
+  // Create a booking for a user and return the created booking.
+  Future<Booking?> bookBike({
+    required String userId,
+    required String bikeId,
+  }) async {
+    try {
+      final now = DateTime.now();
+      final booking = Booking(
+        id: now.microsecondsSinceEpoch.toString(),
+        userId: userId,
+        bikeId: bikeId,
+        startTime: now,
+        endTime: now,
+        price: 0,
+      );
+
+      await createBooking(booking);
+      return booking;
+    } catch (e) {
+      _error = 'Failed to book bike: $e';
+      notifyListeners();
+      return null;
+    }
+  }
+
   // Update existing booking
   Future<void> updateBooking(Booking booking) async {
     try {
