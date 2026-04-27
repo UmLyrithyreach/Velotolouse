@@ -106,18 +106,17 @@ class BookingViewModel extends ChangeNotifier {
     currentDistanceKm = 0.0;
 
     // Update distance every 1 second for more responsive updates
-    distanceUpdateTimer = Timer.periodic(
-      const Duration(seconds: 1),
-      (timer) {
-        // Calculate elapsed time in seconds
-        final elapsedSeconds =
-            DateTime.now().difference(rideStartTime!).inSeconds.toDouble();
+    distanceUpdateTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // Calculate elapsed time in seconds
+      final elapsedSeconds = DateTime.now()
+          .difference(rideStartTime!)
+          .inSeconds
+          .toDouble();
 
-        // Simulate 15 km/h average cycling speed
-        currentDistanceKm = (elapsedSeconds / 3600) * 15;
-        notifyListeners();
-      },
-    );
+      // simulate bike speed as 15kmph for testing purposes
+      currentDistanceKm = (elapsedSeconds / 3600) * 15;
+      notifyListeners();
+    });
   }
 
   // Stop distance simulation
@@ -126,11 +125,18 @@ class BookingViewModel extends ChangeNotifier {
     distanceUpdateTimer = null;
   }
 
-  // Start a ride from the booking screen
+  // start a ride from the booking screen
   Future<void> startRide() async {
     final user = authViewModel.currentUser;
     final activeBookingId = user?.activeBookingId;
     final bike = selectedBike;
+
+    // user null check
+    if (user == null) {
+      errorMessage = 'Please Login first';
+      notifyListeners();
+      return;
+    }
 
     if (activeBookingId == null) {
       errorMessage = 'No active booking found';
@@ -226,8 +232,10 @@ class BookingViewModel extends ChangeNotifier {
         distanceKm = distanceMeters / 1000;
       } catch (_) {
         // Fallback to time-based calculation
-        final durationMinutes =
-            DateTime.now().difference(trip.startTime).inMinutes.toDouble();
+        final durationMinutes = DateTime.now()
+            .difference(trip.startTime)
+            .inMinutes
+            .toDouble();
         distanceKm = (durationMinutes / 60) * 15;
       }
 
@@ -259,10 +267,7 @@ class BookingViewModel extends ChangeNotifier {
       errorMessage = null;
       notifyListeners();
 
-      return EndTripResult(
-        distanceKm: distanceKm,
-        price: totalPrice,
-      );
+      return EndTripResult(distanceKm: distanceKm, price: totalPrice);
     } catch (e) {
       errorMessage = 'Failed to end ride: $e';
       notifyListeners();
