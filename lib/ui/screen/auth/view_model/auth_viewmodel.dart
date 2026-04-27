@@ -3,7 +3,7 @@ import 'package:velotolouse/data/repositories/user/user_abstract_repo.dart';
 import 'package:velotolouse/model/user/user.dart';
 
 class AuthViewModel extends ChangeNotifier {
-  // Repository injected via constructor (manual injection, no get_it)
+  // Repository injected via constructor
   final UserRepository _userRepository;
 
   // State variables

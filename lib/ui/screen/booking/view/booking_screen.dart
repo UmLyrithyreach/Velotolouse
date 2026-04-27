@@ -20,10 +20,9 @@ class _BookingScreenState extends State<BookingScreen> {
   @override
   void initState() {
     super.initState();
-    // Initialize the ViewModel with the selected bike
-    Future.microtask(() {
-      context.read<BookingViewModel>().initializeWithBike(widget.bike);
-    });
+    Future(
+      () => context.read<BookingViewModel>().initializeWithBike(widget.bike),
+    );
   }
 
   @override
@@ -56,7 +55,8 @@ class _BookingScreenState extends State<BookingScreen> {
                   BikeInfoCard(bike: viewModel.selectedBike!),
 
                   // Show loading while creating booking
-                  if (!viewModel.isBookingCreated && viewModel.errorMessage == null)
+                  if (!viewModel.isBookingCreated &&
+                      viewModel.errorMessage == null)
                     const Padding(
                       padding: EdgeInsets.all(32),
                       child: Center(
@@ -71,15 +71,14 @@ class _BookingScreenState extends State<BookingScreen> {
                     ),
 
                   // Show payment section if booking created but payment not completed
-                  if (viewModel.isBookingCreated && !viewModel.isPaymentCompleted)
+                  if (viewModel.isBookingCreated &&
+                      !viewModel.isPaymentCompleted)
                     PaymentSection(
                       onKHQRPressed: () async {
                         await viewModel.proceedWithKHQR();
                         if (context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Payment completed'),
-                            ),
+                            const SnackBar(content: Text('Payment completed')),
                           );
                         }
                       },

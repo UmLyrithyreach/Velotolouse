@@ -16,8 +16,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void initState() {
     super.initState();
-    // Fetch trips for the current user when the screen loads
-    Future.microtask(() {
+    Future(() {
       final userId = context.read<AuthViewModel>().currentUser?.id;
       if (userId != null) {
         context.read<HistoryViewModel>().fetchTripsByUserId(userId);
@@ -31,9 +30,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final historyViewModel = context.watch<HistoryViewModel>();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Trip History'),
-      ),
+      appBar: AppBar(title: const Text('Trip History')),
       body: _buildBody(historyViewModel),
     );
   }

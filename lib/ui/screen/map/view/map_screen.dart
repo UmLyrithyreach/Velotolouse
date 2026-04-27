@@ -27,11 +27,7 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    // Fetch all bikes when the screen loads
-    Future.microtask(() {
-      context.read<MapViewModel>().fetchAllBikes();
-    });
+    Future(() => context.read<MapViewModel>().fetchAllBikes());
   }
 
   @override
@@ -92,9 +88,6 @@ class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
 
     // Get filtered list of bikes from ViewModel
     final filteredBikes = mapViewModel.filterBikesByName(_searchQuery);
-    
-    // Debug: Print bike count
-    print('Displaying ${filteredBikes.length} bikes on map');
 
     return Scaffold(
       appBar: AppBar(

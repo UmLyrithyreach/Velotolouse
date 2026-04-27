@@ -11,6 +11,7 @@ class FirebaseTripRepository implements TripRepository {
   @override
   Future<List<Trip>> getAllTrips() async {
     final uri = FirebaseConfig.buildUri('trips.json');
+    // https://velotolouse-60964-default-rtdb.asia-southeast1.firebasedatabase.app/ , /trips.json
 
     try {
       final response = await http.get(uri);

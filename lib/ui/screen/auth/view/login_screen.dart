@@ -32,7 +32,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleLogin() async {
     final authViewModel = context.read<AuthViewModel>();
 
-    // Call the login method in the provider (all logic lives there)
+    // Call the login method in the provider
     final success = await authViewModel.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
