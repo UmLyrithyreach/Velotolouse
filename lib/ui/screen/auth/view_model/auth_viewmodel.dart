@@ -141,6 +141,26 @@ class AuthViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Update active booking/trip IDs for the current user.
+  Future<void> updateCurrentUserRideState({
+    String? activeBookingId,
+    String? activeTripId,
+  }) async {
+    final user = _currentUser;
+    if (user == null) return;
+
+    final updatedUser = User(
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password,
+      activeBookingId: activeBookingId,
+      activeTripId: activeTripId,
+    );
+
+    await updateCurrentUser(updatedUser);
+  }
+
   // Update current user (for updating active booking/trip)
   Future<void> updateCurrentUser(User user) async {
     try {

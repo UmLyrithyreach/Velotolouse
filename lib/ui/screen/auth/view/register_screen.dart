@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
 import 'package:velotolouse/ui/screen/map/view/map_screen.dart';
 import 'package:velotolouse/ui/widgets/app_logo.dart';
 import 'package:velotolouse/ui/widgets/custom_text_field.dart';
@@ -31,10 +31,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   // Called when the user taps "Register"
   void _handleRegister() async {
-    final userProvider = context.read<UserProvider>();
+    final authViewModel = context.read<AuthViewModel>();
 
     // Call the register method in the provider (all logic lives there)
-    final success = await userProvider.register(
+    final success = await authViewModel.register(
       _nameController.text.trim(),
       _emailController.text.trim(),
       _passwordController.text.trim(),
@@ -52,7 +52,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch the provider so the UI rebuilds when state changes
-    final userProvider = context.watch<UserProvider>();
+    final authViewModel = context.watch<AuthViewModel>();
 
     return Scaffold(
       body: SafeArea(
@@ -104,14 +104,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   const SizedBox(height: 8),
 
                   // Show error message if registration failed
-                  if (userProvider.error != null)
-                    ErrorMessage(message: userProvider.error!),
+                  if (authViewModel.error != null)
+                    ErrorMessage(message: authViewModel.error!),
                   const SizedBox(height: 16),
 
                   // Register button (shows loading spinner while waiting)
                   PrimaryButton(
                     text: 'Register',
-                    isLoading: userProvider.isLoading,
+                    isLoading: authViewModel.isLoading,
                     onPressed: _handleRegister,
                   ),
                   const SizedBox(height: 16),

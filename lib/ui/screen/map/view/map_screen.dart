@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
 import 'package:velotolouse/model/bike/bike.dart';
 import 'package:velotolouse/ui/screen/auth/view/login_screen.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
 import 'package:velotolouse/ui/screen/booking/view/booking_screen.dart';
 import 'package:velotolouse/ui/screen/history/view/history_screen.dart';
 import 'package:velotolouse/ui/screen/map/view_model/map_viewmodel.dart';
@@ -17,7 +17,7 @@ class MapScreen extends StatefulWidget {
   State<MapScreen> createState() => _MapScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
+class _MapScreenState extends State<MapScreen> with WidgetsBindingObserver {
   // Controller for the search bar
   final _searchController = TextEditingController();
 
@@ -27,6 +27,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // Fetch all bikes when the screen loads
     Future.microtask(() {
       context.read<MapViewModel>().fetchAllBikes();
@@ -34,7 +35,16 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // Refresh bikes when app comes back to foreground
+      context.read<MapViewModel>().fetchAllBikes();
+    }
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _searchController.dispose();
     super.dispose();
   }
@@ -43,7 +53,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget build(BuildContext context) {
     // Watch providers so UI rebuilds when state changes
     final mapViewModel = context.watch<MapViewModel>();
-    final userProvider = context.watch<UserProvider>();
+    final authViewModel = context.watch<AuthViewModel>();
 
     final actionMessage = mapViewModel.consumeActionMessage();
     if (actionMessage != null) {
@@ -82,6 +92,9 @@ class _MapScreenState extends State<MapScreen> {
 
     // Get filtered list of bikes from ViewModel
     final filteredBikes = mapViewModel.filterBikesByName(_searchQuery);
+    
+    // Debug: Print bike count
+    print('Displaying ${filteredBikes.length} bikes on map');
 
     return Scaffold(
       appBar: AppBar(
@@ -104,7 +117,7 @@ class _MapScreenState extends State<MapScreen> {
             icon: const Icon(Icons.logout),
             tooltip: 'Logout',
             onPressed: () {
-              userProvider.logout();
+              authViewModel.logout();
               Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (_) => const LoginScreen()),
@@ -223,9 +236,9 @@ class _MapScreenState extends State<MapScreen> {
 
   // Show a bottom sheet with bike details when a marker is tapped
   void _showBikeInfo(BuildContext context, Bike bike) {
-    final userProvider = context.read<UserProvider>();
+    final authViewModel = context.read<AuthViewModel>();
     final mapViewModel = context.read<MapViewModel>();
-    final currentUser = userProvider.currentUser;
+    final currentUser = authViewModel.currentUser;
 
     if (currentUser == null) {
       ScaffoldMessenger.of(
@@ -272,19 +285,23 @@ class _MapScreenState extends State<MapScreen> {
 
               if (mapViewModel.canBookBike(
                 bike: bike,
-                userProvider: userProvider,
+                authViewModel: authViewModel,
               ))
                 PrimaryButton(
                   text: 'Book Bike',
                   onPressed: () async {
                     Navigator.pop(ctx);
-                    // Navigate to BookingScreen instead of booking inline
-                    Navigator.push(
+                    // Navigate to BookingScreen and refresh bikes when returning
+                    await Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (_) => BookingScreen(bike: bike),
                       ),
                     );
+                    // Refresh bikes after returning from booking screen
+                    if (context.mounted) {
+                      context.read<MapViewModel>().fetchAllBikes();
+                    }
                   },
                 ),
 

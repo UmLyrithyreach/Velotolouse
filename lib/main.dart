@@ -4,12 +4,10 @@ import 'package:velotolouse/data/repositories/bike/bike_repository.dart';
 import 'package:velotolouse/data/repositories/booking/booking_repository.dart';
 import 'package:velotolouse/data/repositories/trip/trip_repository.dart';
 import 'package:velotolouse/data/repositories/user/user_repository.dart';
-import 'package:velotolouse/provider/bike_provider.dart';
-import 'package:velotolouse/provider/booking_provider.dart';
-import 'package:velotolouse/provider/trip_provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
 import 'package:velotolouse/ui/screen/auth/view/login_screen.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
 import 'package:velotolouse/ui/screen/booking/view_model/booking_viewmodel.dart';
+import 'package:velotolouse/ui/screen/history/view_model/history_viewmodel.dart';
 import 'package:velotolouse/ui/screen/map/view_model/map_viewmodel.dart';
 
 void main() {
@@ -22,30 +20,54 @@ class MainApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      // Register all providers with their repositories injected
+      // Register all viewmodels with their repositories injected
       providers: [
+        // AuthViewModel - handles user authentication
         ChangeNotifierProvider(
-          create: (_) => UserProvider(FirebaseUserRepository()),
+          create: (_) => AuthViewModel(FirebaseUserRepository()),
         ),
+
+        // HistoryViewModel - handles trip history
         ChangeNotifierProvider(
-          create: (_) => BikeProvider(BikeRepositoryFirebase()),
+          create: (_) => HistoryViewModel(FirebaseTripRepository()),
         ),
-        ChangeNotifierProvider(
-          create: (_) => MapViewModel(BikeRepositoryFirebase()),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => BookingProvider(FirebaseBookingRepository()),
-        ),
-        ChangeNotifierProvider(
-          create: (_) => TripProvider(FirebaseTripRepository()),
-        ),
-        ChangeNotifierProvider(
-          create: (context) => BookingViewModel(
-            bookingProvider: context.read<BookingProvider>(),
-            tripProvider: context.read<TripProvider>(),
-            userProvider: context.read<UserProvider>(),
-            mapViewModel: context.read<MapViewModel>(),
+
+        // MapViewModel - handles bike map and ride operations
+        ChangeNotifierProxyProvider<AuthViewModel, MapViewModel>(
+          create: (context) => MapViewModel(
+            BikeRepositoryFirebase(),
+            FirebaseBookingRepository(),
+            FirebaseTripRepository(),
+            context.read<AuthViewModel>(),
           ),
+          update: (context, authViewModel, previous) => MapViewModel(
+            BikeRepositoryFirebase(),
+            FirebaseBookingRepository(),
+            FirebaseTripRepository(),
+            authViewModel,
+          ),
+        ),
+
+        // BookingViewModel - handles booking screen
+        ChangeNotifierProxyProvider<AuthViewModel, BookingViewModel>(
+          create: (context) => BookingViewModel(
+            bookingRepository: FirebaseBookingRepository(),
+            tripRepository: FirebaseTripRepository(),
+            bikeRepository: BikeRepositoryFirebase(),
+            authViewModel: context.read<AuthViewModel>(),
+          ),
+          update: (context, authViewModel, previous) {
+            // Reuse previous instance if it exists, just update dependencies
+            if (previous != null) {
+              return previous;
+            }
+            return BookingViewModel(
+              bookingRepository: FirebaseBookingRepository(),
+              tripRepository: FirebaseTripRepository(),
+              bikeRepository: BikeRepositoryFirebase(),
+              authViewModel: authViewModel,
+            );
+          },
         ),
       ],
       child: MaterialApp(

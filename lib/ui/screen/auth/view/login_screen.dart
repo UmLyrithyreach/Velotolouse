@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
 import 'package:velotolouse/ui/screen/auth/view/register_screen.dart';
 import 'package:velotolouse/ui/screen/map/view/map_screen.dart';
 import 'package:velotolouse/ui/widgets/app_logo.dart';
@@ -30,10 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Called when the user taps "Login"
   void _handleLogin() async {
-    final userProvider = context.read<UserProvider>();
+    final authViewModel = context.read<AuthViewModel>();
 
     // Call the login method in the provider (all logic lives there)
-    final success = await userProvider.login(
+    final success = await authViewModel.login(
       _emailController.text.trim(),
       _passwordController.text.trim(),
     );
@@ -50,7 +50,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch the provider so the UI rebuilds when state changes
-    final userProvider = context.watch<UserProvider>();
+    final authViewModel = context.watch<AuthViewModel>();
 
     return Scaffold(
       body: SafeArea(
@@ -94,14 +94,14 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 8),
 
                   // Show error message if login failed
-                  if (userProvider.error != null)
-                    ErrorMessage(message: userProvider.error!),
+                  if (authViewModel.error != null)
+                    ErrorMessage(message: authViewModel.error!),
                   const SizedBox(height: 16),
 
                   // Login button (shows loading spinner while waiting)
                   PrimaryButton(
                     text: 'Login',
-                    isLoading: userProvider.isLoading,
+                    isLoading: authViewModel.isLoading,
                     onPressed: _handleLogin,
                   ),
                   const SizedBox(height: 16),

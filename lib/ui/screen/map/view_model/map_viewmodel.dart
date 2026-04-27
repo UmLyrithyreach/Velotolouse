@@ -1,13 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:velotolouse/core/const/priceConstant.dart';
 import 'package:velotolouse/data/repositories/bike/bike_abstract_repo.dart';
+import 'package:velotolouse/data/repositories/booking/booking_repository.dart';
+import 'package:velotolouse/data/repositories/trip/trip_repository.dart';
 import 'package:velotolouse/model/bike/bike.dart';
-import 'package:velotolouse/provider/booking_provider.dart';
-import 'package:velotolouse/provider/trip_provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
+import 'package:velotolouse/model/booking/booking.dart';
+import 'package:velotolouse/model/trip/trip.dart';
+import 'package:velotolouse/model/trip/end_trip_result.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
 
+// Map ViewModel — handles bike fetching and filtering logic
 class MapViewModel extends ChangeNotifier {
-  // Repository injected via constructor (manual injection, no get_it)
+  // Repositories and ViewModels injected via constructor
   final BikeAbstractRepo _bikeRepository;
+  final FirebaseBookingRepository _bookingRepository;
+  final FirebaseTripRepository _tripRepository;
 
   // State variables
   List<Bike> _bikes = [];
@@ -23,25 +31,28 @@ class MapViewModel extends ChangeNotifier {
   String? get actionMessage => _actionMessage;
   EndTripResult? get lastEndTripResult => _lastEndTripResult;
 
-  MapViewModel(this._bikeRepository);
+  MapViewModel(
+    this._bikeRepository,
+    this._bookingRepository,
+    this._tripRepository, AuthViewModel read,
+  );
 
   // Fetch all bikes from repository
   Future<void> fetchAllBikes() async {
     _isLoading = true;
     _error = null;
-    notifyListeners(); // Notify UI to show loading
+    notifyListeners();
 
     try {
-      // Call repository to get bikes
       _bikes = await _bikeRepository.getAllBikes();
+      print('Fetched ${_bikes.length} bikes'); // Debug log
       _error = null;
     } catch (e) {
-      // Store error message if something fails
       _error = 'Failed to fetch bikes: $e';
       print(_error);
     } finally {
       _isLoading = false;
-      notifyListeners(); // Notify UI that loading is done
+      notifyListeners();
     }
   }
 
@@ -60,14 +71,12 @@ class MapViewModel extends ChangeNotifier {
   // Filter bikes by name (search functionality)
   List<Bike> filterBikesByName(String query) {
     if (query.isEmpty) return _bikes;
-
-    // Filter bikes where name contains the search query (case-insensitive)
     return _bikes
         .where((bike) => bike.name.toLowerCase().contains(query.toLowerCase()))
         .toList();
   }
 
-  // Filter bikes by status (available or unavailable)
+  // Filter bikes by status
   List<Bike> filterBikesByStatus(String status) {
     return _bikes.where((bike) => bike.status == status).toList();
   }
@@ -80,11 +89,9 @@ class MapViewModel extends ChangeNotifier {
   // Update bike availability
   Future<void> updateBikeAvailability(String bikeId, bool isAvailable) async {
     try {
-      // Call repository to update bike availability
       final updatedBike =
           await _bikeRepository.updateBikeAvailability(bikeId, isAvailable);
 
-      // Update bike in local list if it exists
       if (updatedBike != null) {
         final index = _bikes.indexWhere((b) => b.bikeId == bikeId);
         if (index != -1) {
@@ -101,105 +108,113 @@ class MapViewModel extends ChangeNotifier {
     }
   }
 
-  // Refresh bikes (re-fetch from repository)
+  // Refresh bikes
   Future<void> refreshBikes() async {
     await fetchAllBikes();
   }
 
-  // Clear the one-time action message after UI shows it.
+  // Clear action message
   void clearActionMessage() {
     _actionMessage = null;
     notifyListeners();
   }
 
-  // Clear last end-trip result after dialog is shown.
+  // Clear last end-trip result
   void clearLastEndTripResult() {
     _lastEndTripResult = null;
     notifyListeners();
   }
 
-  // Consume one-time message for UI feedback.
+  // Consume one-time message
   String? consumeActionMessage() {
     final message = _actionMessage;
     _actionMessage = null;
     return message;
   }
 
-  // Consume one-time end-trip result for UI dialog.
+  // Consume one-time end-trip result
   EndTripResult? consumeLastEndTripResult() {
     final result = _lastEndTripResult;
     _lastEndTripResult = null;
     return result;
   }
 
-  // Decide whether the Book button should show.
+  // Decide whether the Book button should show
   bool canBookBike({
     required Bike bike,
-    required UserProvider userProvider,
+    required AuthViewModel authViewModel,
   }) {
-    final user = userProvider.currentUser;
+    final user = authViewModel.currentUser;
     final hasActiveBooking = user?.activeBookingId != null;
     final hasActiveTrip = user?.activeTripId != null;
     return !hasActiveBooking && !hasActiveTrip && bike.status == 'available';
   }
 
-  // Decide whether the Start Ride button should show.
-  bool canStartRide(UserProvider userProvider) {
-    final user = userProvider.currentUser;
+  // Decide whether the Start Ride button should show
+  bool canStartRide(AuthViewModel authViewModel) {
+    final user = authViewModel.currentUser;
     final hasActiveBooking = user?.activeBookingId != null;
     final hasActiveTrip = user?.activeTripId != null;
     return hasActiveBooking && !hasActiveTrip;
   }
 
-  // Decide whether the End Ride button should show.
-  bool canEndRide(UserProvider userProvider) {
-    final user = userProvider.currentUser;
+  // Decide whether the End Ride button should show
+  bool canEndRide(AuthViewModel authViewModel) {
+    final user = authViewModel.currentUser;
     return user?.activeTripId != null;
   }
 
-  // Book a selected bike for the current user.
+  // Book a selected bike for the current user
   Future<void> bookBike({
     required Bike bike,
-    required BookingProvider bookingProvider,
-    required UserProvider userProvider,
+    required AuthViewModel authViewModel,
   }) async {
-    final user = userProvider.currentUser;
+    final user = authViewModel.currentUser;
     if (user == null) {
       _actionMessage = 'Please login first';
       notifyListeners();
       return;
     }
 
-    final booking = await bookingProvider.bookBike(
-      userId: user.id,
-      bikeId: bike.bikeId,
-    );
+    try {
+      // Create booking
+      final now = DateTime.now();
+      final booking = Booking(
+        id: now.microsecondsSinceEpoch.toString(),
+        userId: user.id,
+        bikeId: bike.bikeId,
+        startTime: now,
+        endTime: now,
+        price: 0,
+      );
 
-    if (booking == null) {
-      _actionMessage = bookingProvider.error ?? 'Booking failed';
+      await _bookingRepository.createBooking(booking);
+
+      // Update bike availability
+      await updateBikeAvailability(bike.bikeId, false);
+
+      // Update user state
+      await authViewModel.updateCurrentUserRideState(
+        activeBookingId: booking.id,
+        activeTripId: null,
+      );
+
+      await fetchAllBikes();
+
+      _actionMessage = 'Bike booked successfully';
       notifyListeners();
-      return;
+    } catch (e) {
+      _actionMessage = 'Booking failed: $e';
+      notifyListeners();
     }
-
-    await updateBikeAvailability(bike.bikeId, false);
-    await userProvider.updateCurrentUserRideState(
-      activeBookingId: booking.id,
-      activeTripId: null,
-    );
-    await fetchAllBikes();
-
-    _actionMessage = 'Bike booked successfully';
-    notifyListeners();
   }
 
-  // Start a trip from the active booking.
+  // Start a trip from the active booking
   Future<void> startRide({
     required Bike bike,
-    required BookingProvider bookingProvider,
-    required TripProvider tripProvider,
-    required UserProvider userProvider,
+    required AuthViewModel authViewModel,
   }) async {
-    final user = userProvider.currentUser;
+    final user = authViewModel.currentUser;
     final activeBookingId = user?.activeBookingId;
     if (user == null || activeBookingId == null) {
       _actionMessage = 'No active booking found';
@@ -207,39 +222,50 @@ class MapViewModel extends ChangeNotifier {
       return;
     }
 
-    final booking = await bookingProvider.fetchBookingById(activeBookingId);
-    if (booking == null || booking.bikeId != bike.bikeId) {
-      _actionMessage = 'Please tap your booked bike to start';
+    try {
+      // Verify booking exists and matches bike
+      final booking = await _bookingRepository.getBookingById(activeBookingId);
+      if (booking == null || booking.bikeId != bike.bikeId) {
+        _actionMessage = 'Please tap your booked bike to start';
+        notifyListeners();
+        return;
+      }
+
+      // Create trip
+      final now = DateTime.now();
+      final trip = Trip(
+        id: now.microsecondsSinceEpoch.toString(),
+        userId: user.id,
+        bikeId: bike.bikeId,
+        startTime: now,
+        endTime: now,
+        price: 0,
+      );
+
+      await _tripRepository.createTrip(trip);
+
+      // Delete booking
+      await _bookingRepository.deleteBooking(activeBookingId);
+
+      // Update user state
+      await authViewModel.updateCurrentUserRideState(
+        activeBookingId: null,
+        activeTripId: trip.id,
+      );
+
+      _actionMessage = 'Ride started';
       notifyListeners();
-      return;
-    }
-
-    final trip = await tripProvider.startTrip(
-      userId: user.id,
-      bikeId: bike.bikeId,
-    );
-    if (trip == null) {
-      _actionMessage = tripProvider.error ?? 'Failed to start ride';
+    } catch (e) {
+      _actionMessage = 'Failed to start ride: $e';
       notifyListeners();
-      return;
     }
-
-    await bookingProvider.deleteBooking(activeBookingId);
-    await userProvider.updateCurrentUserRideState(
-      activeBookingId: null,
-      activeTripId: trip.id,
-    );
-
-    _actionMessage = 'Ride started';
-    notifyListeners();
   }
 
-  // End the active trip and store result for UI dialog.
+  // End the active trip
   Future<void> endRide({
-    required TripProvider tripProvider,
-    required UserProvider userProvider,
+    required AuthViewModel authViewModel,
   }) async {
-    final user = userProvider.currentUser;
+    final user = authViewModel.currentUser;
     final activeTripId = user?.activeTripId;
     if (user == null || activeTripId == null) {
       _actionMessage = 'No active ride found';
@@ -247,50 +273,87 @@ class MapViewModel extends ChangeNotifier {
       return;
     }
 
-    final trip = await tripProvider.fetchTripById(activeTripId);
-    if (trip == null) {
-      _actionMessage = 'Unable to load active ride';
-      notifyListeners();
-      return;
-    }
-
-    Bike? startBike;
-    for (final bike in _bikes) {
-      if (bike.bikeId == trip.bikeId) {
-        startBike = bike;
-        break;
+    try {
+      // Fetch trip
+      final trip = await _tripRepository.getTripById(activeTripId);
+      if (trip == null) {
+        _actionMessage = 'Unable to load active ride';
+        notifyListeners();
+        return;
       }
-    }
 
-    if (startBike == null) {
-      _actionMessage = 'Unable to find bike location';
+      // Find bike
+      Bike? startBike;
+      for (final bike in _bikes) {
+        if (bike.bikeId == trip.bikeId) {
+          startBike = bike;
+          break;
+        }
+      }
+
+      if (startBike == null) {
+        _actionMessage = 'Unable to find bike location';
+        notifyListeners();
+        return;
+      }
+
+      // Calculate distance
+      double distanceKm = 0;
+      try {
+        final currentPosition = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+          ),
+        );
+
+        final distanceMeters = Geolocator.distanceBetween(
+          startBike.latitude,
+          startBike.longitude,
+          currentPosition.latitude,
+          currentPosition.longitude,
+        );
+        distanceKm = distanceMeters / 1000;
+      } catch (_) {
+        // Fallback to time-based calculation
+        final durationMinutes =
+            DateTime.now().difference(trip.startTime).inMinutes.toDouble();
+        distanceKm = (durationMinutes / 60) * 15;
+      }
+
+      final totalPrice = distanceKm * PriceConstant.pricePerKm;
+
+      // Update trip
+      final endedTrip = Trip(
+        id: trip.id,
+        userId: trip.userId,
+        bikeId: trip.bikeId,
+        startTime: trip.startTime,
+        endTime: DateTime.now(),
+        price: totalPrice,
+      );
+
+      await _tripRepository.updateTrip(endedTrip);
+
+      // Update bike availability
+      await updateBikeAvailability(trip.bikeId, true);
+
+      // Clear user state
+      await authViewModel.updateCurrentUserRideState(
+        activeBookingId: null,
+        activeTripId: null,
+      );
+
+      await fetchAllBikes();
+
+      _lastEndTripResult = EndTripResult(
+        distanceKm: distanceKm,
+        price: totalPrice,
+      );
+      _actionMessage = 'Ride completed';
       notifyListeners();
-      return;
-    }
-
-    final result = await tripProvider.endTrip(
-      tripId: trip.id,
-      userId: trip.userId,
-      bikeId: trip.bikeId,
-      startTime: trip.startTime,
-      startLatitude: startBike.latitude,
-      startLongitude: startBike.longitude,
-    );
-    if (result == null) {
-      _actionMessage = tripProvider.error ?? 'Failed to end ride';
+    } catch (e) {
+      _actionMessage = 'Failed to end ride: $e';
       notifyListeners();
-      return;
     }
-
-    await updateBikeAvailability(trip.bikeId, true);
-    await userProvider.updateCurrentUserRideState(
-      activeBookingId: null,
-      activeTripId: null,
-    );
-    await fetchAllBikes();
-
-    _lastEndTripResult = result;
-    _actionMessage = 'Ride completed';
-    notifyListeners();
   }
 }

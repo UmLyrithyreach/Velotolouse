@@ -35,7 +35,9 @@ class _BookingScreenState extends State<BookingScreen> {
     if (viewModel.errorMessage != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
-        _showErrorDialog(viewModel.errorMessage!);
+        final error = viewModel.errorMessage!;
+        _showErrorDialog(error);
+        // Clear error after showing (optional, but prevents repeated dialogs)
       });
     }
 

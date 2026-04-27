@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:velotolouse/provider/trip_provider.dart';
-import 'package:velotolouse/provider/user_provider.dart';
+import 'package:velotolouse/ui/screen/auth/view_model/auth_viewmodel.dart';
+import 'package:velotolouse/ui/screen/history/view_model/history_viewmodel.dart';
 import 'package:velotolouse/model/trip/trip.dart';
 
 class HistoryScreen extends StatefulWidget {
@@ -18,9 +18,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     super.initState();
     // Fetch trips for the current user when the screen loads
     Future.microtask(() {
-      final userId = context.read<UserProvider>().currentUser?.id;
+      final userId = context.read<AuthViewModel>().currentUser?.id;
       if (userId != null) {
-        context.read<TripProvider>().fetchTripsByUserId(userId);
+        context.read<HistoryViewModel>().fetchTripsByUserId(userId);
       }
     });
   }
@@ -28,35 +28,35 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   Widget build(BuildContext context) {
     // Watch the trip provider so UI rebuilds when state changes
-    final tripProvider = context.watch<TripProvider>();
+    final historyViewModel = context.watch<HistoryViewModel>();
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Trip History'),
       ),
-      body: _buildBody(tripProvider),
+      body: _buildBody(historyViewModel),
     );
   }
 
   // Build the body based on loading/error/data state
-  Widget _buildBody(TripProvider tripProvider) {
+  Widget _buildBody(HistoryViewModel historyViewModel) {
     // Show loading spinner while fetching
-    if (tripProvider.isLoading) {
+    if (historyViewModel.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
     // Show error message if something went wrong
-    if (tripProvider.error != null) {
+    if (historyViewModel.error != null) {
       return Center(
         child: Text(
-          tripProvider.error!,
+          historyViewModel.error!,
           style: const TextStyle(color: Colors.red),
         ),
       );
     }
 
     // Show message if no trips found
-    if (tripProvider.userTrips.isEmpty) {
+    if (historyViewModel.userTrips.isEmpty) {
       return const Center(
         child: Text(
           'No trips yet. Start riding!',
@@ -68,9 +68,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
     // Show list of trip cards
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: tripProvider.userTrips.length,
+      itemCount: historyViewModel.userTrips.length,
       itemBuilder: (context, index) {
-        final trip = tripProvider.userTrips[index];
+        final trip = historyViewModel.userTrips[index];
         return _buildTripCard(trip);
       },
     );
